@@ -995,7 +995,7 @@ export default function App() {
                   <tr className="border-b border-slate-200 bg-slate-50 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 select-none">
                     <th className="px-5 py-3 font-bold">Username</th>
                     <th className="px-5 py-3 font-bold">Workspace</th>
-                    <th className="px-5 py-3 font-bold">Statistik Publik (Fol / Foll / Vid)</th>
+                    <th className="px-5 py-3 font-bold">Statistik Followers</th>
                     <th className="px-5 py-3 font-bold">Email (Copy)</th>
                     <th className="px-5 py-3 font-bold">Password (Copy)</th>
                     <th className="px-5 py-3 font-bold">Status</th>
@@ -1079,20 +1079,7 @@ export default function App() {
                               <div className="flex items-center gap-1 bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-bold text-[10px]">
                                 <Users className="h-3 w-3" />
                                 <span>{account.followers >= 1000000 ? `${(account.followers / 1000000).toFixed(1)}M` : account.followers >= 1000 ? `${(account.followers / 1000).toFixed(1)}K` : account.followers}</span>
-                                <span className="text-[8px] text-indigo-400 font-normal">Fol</span>
-                              </div>
-                              
-                              {/* Following */}
-                              <div className="flex items-center gap-1 bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold text-[10px]">
-                                <span>{account.following >= 1000 ? `${(account.following / 1000).toFixed(1)}K` : account.following}</span>
-                                <span className="text-[8px] text-slate-400 font-normal">Foll</span>
-                              </div>
-
-                              {/* Videos */}
-                              <div className="flex items-center gap-1 bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold text-[10px]">
-                                <Video className="h-2.5 w-2.5 text-slate-400" />
-                                <span>{account.videos}</span>
-                                <span className="text-[8px] text-slate-400 font-normal">Vid</span>
+                                <span className="text-[8px] text-indigo-400 font-normal">Followers</span>
                               </div>
 
                               {/* Trigger direct metrics refresh API */}
