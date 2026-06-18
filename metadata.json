@@ -1,0 +1,6 @@
+{
+  "name": "TikTok Manager - Kelola Multiple Akun Dengan Mudah",
+  "description": "A comprehensive full-stack application to manage multiple TikTok accounts, workspaces, and fetch public account stats seamlessly.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
