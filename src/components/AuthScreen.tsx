@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, Eye, EyeOff, Sparkles, Check, ArrowRight, Chrome } from 'lucide-react';
+import { Chrome } from 'lucide-react';
 import { UserAccount } from '../storage';
 import { auth } from '../firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
@@ -12,11 +12,6 @@ interface AuthScreenProps {
 }
 
 export default function AuthScreen({ onLoginSuccess, registeredUsers, onRegisterUser, onBackToLanding }: AuthScreenProps) {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [emailInput, setEmailInput] = useState('');
-  const [passwordInput, setPasswordInput] = useState('');
-  const [nameInput, setNameInput] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
@@ -67,54 +62,6 @@ export default function AuthScreen({ onLoginSuccess, registeredUsers, onRegister
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage('');
-
-    const cleanEmail = emailInput.trim().toLowerCase();
-    const cleanPassword = passwordInput.trim();
-    const cleanName = nameInput.trim();
-
-    if (!cleanEmail || !cleanPassword) {
-      setErrorMessage('Email dan password tidak boleh kosong!');
-      return;
-    }
-
-    if (isSignUp) {
-      if (!cleanName) {
-        setErrorMessage('Nama lengkap wajib diisi!');
-        return;
-      }
-      // Check if user already exists
-      const exists = registeredUsers.some(u => u.email.toLowerCase() === cleanEmail);
-      if (exists) {
-        setErrorMessage('Email ini sudah terdaftar. Silakan login!');
-        return;
-      }
-
-      // Create new user
-      const newUser: UserAccount = {
-        name: cleanName,
-        email: cleanEmail,
-        passwordHash: cleanPassword // secure mock hash
-      };
-      onRegisterUser(newUser);
-      onLoginSuccess(newUser);
-    } else {
-      // Find matching credentials
-      const user = registeredUsers.find(u => u.email.toLowerCase() === cleanEmail);
-      if (!user) {
-        setErrorMessage('Akun tidak ditemukan. Silakan daftar terlebih dahulu!');
-        return;
-      }
-      if (user.passwordHash !== cleanPassword) {
-        setErrorMessage('Password yang Anda masukkan salah!');
-        return;
-      }
-      onLoginSuccess(user);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col justify-center items-center p-4 relative overflow-hidden">
       {/* Dynamic ambient decoration background circles */}
@@ -122,7 +69,7 @@ export default function AuthScreen({ onLoginSuccess, registeredUsers, onRegister
       <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl"></div>
  
       {/* Main card box container */}
-      <div className="w-full max-w-md bg-slate-950/80 backdrop-blur-xl rounded-2xl border border-slate-800 shadow-2xl p-8 relative z-10 transition-all">
+      <div className="w-full max-w-md bg-slate-950/80 backdrop-blur-xl rounded-2xl border border-slate-800 shadow-2xl p-8 relative z-10 transition-all text-center">
         
         {/* Header Branding */}
         <div className="text-center mb-8">
@@ -135,133 +82,39 @@ export default function AuthScreen({ onLoginSuccess, registeredUsers, onRegister
           <p className="text-sm text-slate-400 mt-1">Sistem Manajemen Akun & Workspaces Pro</p>
         </div>
 
-        {/* Tab switch buttons */}
-        <div className="flex p-1 bg-slate-900 rounded-xl border border-slate-800 mb-6">
-          <button
-            type="button"
-            onClick={() => { setIsSignUp(false); setErrorMessage(''); }}
-            className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-              !isSignUp ? 'bg-[#FE2C55] text-white shadow-sm' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Masuk (Sign In)
-          </button>
-          <button
-            type="button"
-            onClick={() => { setIsSignUp(true); setErrorMessage(''); }}
-            className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-              isSignUp ? 'bg-[#FE2C55] text-white shadow-sm' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Daftar (Sign Up)
-          </button>
+        {/* Info panel */}
+        <div className="bg-slate-900/60 border border-slate-800/60 rounded-xl p-4 mb-6 text-left">
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Selamat datang! Demi kenyamanan, keamanan akun, dan sinkronisasi real-time instan, aplikasi ini kini terintegrasi penuh dengan <strong>Google Account Services</strong>.
+          </p>
         </div>
 
-        {/* Form Container */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Google Sign-in button */}
+        <div className="space-y-4">
           
           {/* Error Message */}
           {errorMessage && (
-            <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs rounded-xl font-medium">
+            <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs rounded-xl font-medium text-left">
               {errorMessage}
             </div>
           )}
 
-          {/* Full Name field (Register only) */}
-          {isSignUp && (
-            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nama Lengkap</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                  <User className="h-4 w-4" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Contoh: Anjaz Rera"
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Email Address */}
-          <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Alamat Email</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                <Mail className="h-4 w-4" />
-              </div>
-              <input
-                type="email"
-                required
-                placeholder="email@domain.com"
-                value={emailInput}
-                onChange={(e) => setEmailInput(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all"
-              />
-            </div>
-          </div>
-
-          {/* Password Input */}
-          <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Kata Sandi (Password)</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                <Lock className="h-4 w-4" />
-              </div>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                required
-                placeholder="••••••••"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                className="w-full pl-10 pr-10 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 transition-all font-mono"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-white transition-colors cursor-pointer"
-                title={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-
-          {/* Submit button */}
-          <button
-            type="submit"
-            className="w-full py-3 bg-[#FE2C55] hover:bg-rose-505 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-bold rounded-xl text-sm shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 focus:ring-offset-slate-950 mt-2 cursor-pointer shadow-rose-600/10"
-          >
-            {isSignUp ? 'Daftar Akun Baru' : 'Masuk ke Dashboard'}
-          </button>
-
-          {/* Divider line */}
-          <div className="relative flex py-2 items-center">
-            <div className="flex-grow border-t border-slate-800"></div>
-            <span className="flex-shrink mx-4 text-slate-500 text-[10px] font-mono uppercase tracking-wider select-none">atau</span>
-            <div className="flex-grow border-t border-slate-800"></div>
-          </div>
-
-          {/* Google Sign-in button */}
           <button
             type="button"
             disabled={isGoogleLoading}
             onClick={handleGoogleSignIn}
-            className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 active:bg-slate-950 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2.5 transition-all focus:outline-none focus:ring-2 focus:ring-slate-800 cursor-pointer disabled:opacity-50 disabled:pointer-events-none shadow-md"
+            className="w-full py-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 active:bg-slate-950 text-white font-bold rounded-xl text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all focus:outline-none focus:ring-2 focus:ring-slate-800 cursor-pointer disabled:opacity-50 disabled:pointer-events-none shadow-md"
           >
             {isGoogleLoading ? (
-              <div className="h-4 w-4 border-2 border-slate-500 border-t-white rounded-full animate-spin"></div>
+              <div className="h-5 w-5 border-2 border-slate-500 border-t-white rounded-full animate-spin"></div>
             ) : (
               <div className="flex items-center justify-center mr-0.5">
-                <span className="text-[#4285F4] font-black text-xs sm:text-sm mr-[1px]">G</span>
-                <span className="text-[#EA4335] font-black text-xs sm:text-sm mr-[1px]">o</span>
-                <span className="text-[#FBBC05] font-black text-xs sm:text-sm mr-[1px]">o</span>
-                <span className="text-[#4285F4] font-black text-xs sm:text-sm mr-[1px]">g</span>
-                <span className="text-[#34A853] font-black text-xs sm:text-sm mr-[1px]">l</span>
-                <span className="text-[#EA4335] font-black text-xs sm:text-sm">e</span>
+                <span className="text-[#4285F4] font-black text-sm sm:text-base mr-[1px]">G</span>
+                <span className="text-[#EA4335] font-black text-sm sm:text-base mr-[1px]">o</span>
+                <span className="text-[#FBBC05] font-black text-sm sm:text-base mr-[1px]">o</span>
+                <span className="text-[#4285F4] font-black text-sm sm:text-base mr-[1px]">g</span>
+                <span className="text-[#34A853] font-black text-sm sm:text-base mr-[1px]">l</span>
+                <span className="text-[#EA4335] font-black text-sm sm:text-base">e</span>
               </div>
             )}
             <span>{isGoogleLoading ? 'Menghubungkan...' : 'Masuk dengan Google'}</span>
@@ -271,16 +124,16 @@ export default function AuthScreen({ onLoginSuccess, registeredUsers, onRegister
             <button
               type="button"
               onClick={onBackToLanding}
-              className="w-full py-2 bg-transparent hover:bg-slate-900 text-slate-400 hover:text-slate-200 text-xs font-bold rounded-lg transition-colors mt-1 focus:outline-none focus:ring-2 focus:ring-slate-800"
+              className="w-full py-2 bg-transparent hover:bg-slate-900 text-slate-400 hover:text-slate-200 text-xs font-bold rounded-lg transition-colors mt-1 focus:outline-none focus:ring-2 focus:ring-slate-800 cursor-pointer"
             >
               ← Kembali ke Halaman Utama
             </button>
           )}
-        </form>
+        </div>
 
         {/* Footer info policy */}
-        <p className="text-[10px] text-slate-500 text-center mt-6">
-          Data tersimpan aman di server database berdasarkan akun email terdaftar untuk keamanan dan portabilitas maksimal.
+        <p className="text-[10px] text-slate-500 text-center mt-8">
+          Masuk dengan Google menjamin database cloud workspace Anda terlindungi dan dapat diakses dari perangkat mana pun secara aman.
         </p>
       </div>
 
