@@ -71,6 +71,7 @@ export default function App() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedType, setCopiedType] = useState<'email' | 'password' | null>(null);
   const [sysAlert, setSysAlert] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
+  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
 
   // --- Modal States ---
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
@@ -94,50 +95,69 @@ export default function App() {
   // --- Workspace Form States ---
   const [wsName, setWsName] = useState('');
   const [wsDescription, setWsDescription] = useState('');
-  const [wsColor, setWsColor] = useState('bg-indigo-500/10 text-indigo-700 border-indigo-200/50');
+  const [wsColor, setWsColor] = useState('bg-rose-500/10 text-rose-700 border-rose-200/50');
 
   // Load users list and check logged in session on boot
   useEffect(() => {
-    const list = getUsersFromLocal();
-    setUsers(list);
+    const initData = async () => {
+      try {
+        const list = await getUsersFromLocal();
+        setUsers(list);
 
-    const activeEmail = getLoggedInUserEmail();
-    if (activeEmail) {
-      const found = list.find(u => u.email.toLowerCase() === activeEmail.toLowerCase());
-      if (found) {
-        setCurrentUser(found);
-        setAccounts(getInitialAccounts(found.email));
-        setWorkspaces(getInitialWorkspaces(found.email));
-      } else {
-        setLoggedInUserEmail(null);
+        const activeEmail = getLoggedInUserEmail();
+        if (activeEmail) {
+          const found = list.find(u => u.email.toLowerCase() === activeEmail.toLowerCase());
+          if (found) {
+            setCurrentUser(found);
+            const initialAccounts = await getInitialAccounts(found.email);
+            const initialWorkspaces = await getInitialWorkspaces(found.email);
+            setAccounts(initialAccounts);
+            setWorkspaces(initialWorkspaces);
+          } else {
+            setLoggedInUserEmail(null);
+          }
+        }
+      } catch (err) {
+        console.error('Gagal memuat data awal dari backend server:', err);
       }
-    }
+    };
+    initData();
   }, []);
 
   // Save current dataset when updated (bound to current user)
-  const updateAccountsState = (newAccounts: TikTokAccount[]) => {
+  const updateAccountsState = async (newAccounts: TikTokAccount[]) => {
     setAccounts(newAccounts);
-    saveAccountsToLocal(newAccounts, currentUser?.email);
+    if (currentUser?.email) {
+      await saveAccountsToLocal(newAccounts, currentUser.email);
+    }
   };
 
-  const updateWorkspacesState = (newWorkspaces: Workspace[]) => {
+  const updateWorkspacesState = async (newWorkspaces: Workspace[]) => {
     setWorkspaces(newWorkspaces);
-    saveWorkspacesToLocal(newWorkspaces, currentUser?.email);
+    if (currentUser?.email) {
+      await saveWorkspacesToLocal(newWorkspaces, currentUser.email);
+    }
   };
 
   // --- Auth Handlers ---
-  const handleLoginSuccess = (user: UserAccount) => {
+  const handleLoginSuccess = async (user: UserAccount) => {
     setCurrentUser(user);
     setLoggedInUserEmail(user.email);
-    setAccounts(getInitialAccounts(user.email));
-    setWorkspaces(getInitialWorkspaces(user.email));
+    try {
+      const initialAccounts = await getInitialAccounts(user.email);
+      const initialWorkspaces = await getInitialWorkspaces(user.email);
+      setAccounts(initialAccounts);
+      setWorkspaces(initialWorkspaces);
+    } catch (err) {
+      console.error('Gagal memuat data akun dan folder dari backend server:', err);
+    }
     triggerAlert(`Selamat datang kembali, ${user.name}!`, 'success');
   };
 
-  const handleRegisterUser = (newUser: UserAccount) => {
+  const handleRegisterUser = async (newUser: UserAccount) => {
     const updatedUsers = [...users.filter(u => u.email.toLowerCase() !== newUser.email.toLowerCase()), newUser];
     setUsers(updatedUsers);
-    saveUsersToLocal(updatedUsers);
+    await saveUsersToLocal(newUser);
   };
 
   const handleLogout = () => {
@@ -358,7 +378,7 @@ export default function App() {
     setIsWorkspaceModalOpen(false);
     setWsName('');
     setWsDescription('');
-    setWsColor('bg-indigo-500/10 text-indigo-700 border-indigo-200/50');
+    setWsColor('bg-rose-500/10 text-rose-700 border-rose-200/50');
   };
 
   // Delete workspace safely
@@ -535,8 +555,8 @@ export default function App() {
   const PRESET_COLORS = [
     { value: 'bg-emerald-500/10 text-emerald-700 border-emerald-200/50', label: 'Emerald Green' },
     { value: 'bg-sky-500/10 text-sky-700 border-sky-200/50', label: 'Sky Blue' },
-    { value: 'bg-indigo-500/10 text-indigo-700 border-indigo-200/50', label: 'Indigo Purple' },
-    { value: 'bg-rose-500/10 text-rose-700 border-rose-200/50', label: 'Rose Gold' },
+    { value: 'bg-rose-500/10 text-rose-600 border-rose-200/50', label: 'TikTok Rose (Red)' },
+    { value: 'bg-pink-500/10 text-pink-700 border-pink-200/50', label: 'Pink Gold' },
     { value: 'bg-amber-500/10 text-amber-700 border-amber-200/50', label: 'Amber Orange' },
     { value: 'bg-purple-500/10 text-purple-700 border-purple-200/50', label: 'Grape Purple' },
     { value: 'bg-slate-500/10 text-slate-700 border-slate-200/50', label: 'Slate Gray' },
@@ -547,25 +567,10 @@ export default function App() {
       setShowLanding(false);
     };
 
-    const handleDirectDemoLogin = () => {
-      // Find or seed the default admin account: anjazrera@gmail.com
-      let targetUser = users.find(u => u.email.toLowerCase() === 'anjazrera@gmail.com');
-      if (!targetUser) {
-        targetUser = {
-          name: 'Anjaz Rera',
-          email: 'anjazrera@gmail.com',
-          passwordHash: 'admin123'
-        };
-        handleRegisterUser(targetUser);
-      }
-      handleLoginSuccess(targetUser);
-      setShowLanding(false);
-    };
-
     return (
       <LandingPage
         onGetStarted={handleGetStarted}
-        onDirectLogin={handleDirectDemoLogin}
+        onLoginClick={handleGetStarted}
         isLoggedIn={!!currentUser}
       />
     );
@@ -606,7 +611,7 @@ export default function App() {
       {/* Top Elegant App Header Banner */}
       <nav id="top-nav-bar" className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6 shadow-xs sticky top-0 z-40">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-sm hover:rotate-6 transition-transform">
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-[#FE2C55] to-rose-600 flex items-center justify-center shadow-sm hover:rotate-6 transition-transform shadow-rose-600/10">
             <svg className="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12.525.02c1.31-.03 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.03 1.4-.54 2.79-1.47 3.85-1.14 1.27-2.81 2.02-4.52 2.19-1.89.18-3.83-.22-5.38-1.37-1.57-1.17-2.53-3.07-2.52-5.04 0-1.64.65-3.32 1.9-4.38 1.18-1 2.75-1.46 4.31-1.32v4.03c-.88-.13-1.82.1-2.49.71-.62.55-.95 1.39-.93 2.22-.01 1.05.76 2.06 1.8 2.3 1.15.26 2.45-.23 3.01-1.28.31-.56.41-1.22.39-1.86.02-5.26-.01-10.51.01-15.77z"/>
             </svg>
@@ -627,7 +632,7 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
-            <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700 border border-indigo-200">
+            <div className="h-8 w-8 rounded-full bg-rose-100 flex items-center justify-center text-xs font-bold text-[#FE2C55] border border-rose-200">
               {currentUser ? currentUser.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : 'U'}
             </div>
             <div className="text-left hidden md:block">
@@ -654,18 +659,18 @@ export default function App() {
             id="stat-card-total" 
             role="button"
             onClick={() => setSelectedStatus('All')}
-            className={`relative overflow-hidden rounded-xl transition-all p-5 border flex justify-between items-center group cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 select-none ${
+            className={`relative overflow-hidden rounded-xl transition-all p-5 border flex justify-between items-center group cursor-pointer focus:outline-none focus:ring-2 focus:ring-rose-450 focus:ring-rose-400 select-none ${
               selectedStatus === 'All'
-                ? 'border-indigo-500 bg-indigo-50/70 shadow-sm ring-2 ring-indigo-100/50'
+                ? 'border-rose-500 bg-rose-50/70 shadow-sm ring-2 ring-rose-100/50'
                 : 'bg-slate-50 hover:bg-slate-100/70 border-slate-200/80 shadow-xs'
             }`}
           >
-            <div className="border-l-4 border-indigo-600 pl-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 group-hover:text-indigo-600 transition-colors">Total Akun</p>
+            <div className="border-l-4 border-rose-600 pl-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 group-hover:text-rose-600 transition-colors">Total Akun</p>
               <h2 className="text-3xl font-extrabold text-slate-900 mt-1">{statsCounters.total}</h2>
               <p className="text-[11px] text-slate-400 mt-2">Semua status (Aktif)</p>
             </div>
-            <div className="bg-indigo-50 p-3 rounded-lg text-indigo-600">
+            <div className="bg-rose-50 p-3 rounded-lg text-rose-600">
               <Layers className="h-6 w-6" />
             </div>
           </div>
@@ -719,18 +724,18 @@ export default function App() {
             id="stat-card-sold" 
             role="button"
             onClick={() => setSelectedStatus('Sold')}
-            className={`relative overflow-hidden rounded-xl transition-all p-5 border flex justify-between items-center group cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400 select-none ${
+            className={`relative overflow-hidden rounded-xl transition-all p-5 border flex justify-between items-center group cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-400 select-none ${
               selectedStatus === 'Sold'
-                ? 'border-indigo-400 bg-indigo-50/70 shadow-sm ring-2 ring-indigo-100/50'
+                ? 'border-cyan-400 bg-cyan-50/70 shadow-sm ring-2 ring-cyan-100/50'
                 : 'bg-slate-50 hover:bg-slate-100/70 border-slate-200/80 shadow-xs'
             }`}
           >
-            <div className="border-l-4 border-indigo-400 pl-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 group-hover:text-indigo-400 transition-colors">Sold</p>
+            <div className="border-l-4 border-cyan-400 pl-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 group-hover:text-cyan-600 transition-colors">Sold</p>
               <h2 className="text-3xl font-extrabold text-slate-900 mt-1">{statsCounters.sold}</h2>
-              <p className="text-[11px] text-indigo-700 font-medium mt-2">Arsip penjualan sukses</p>
+              <p className="text-[11px] text-cyan-700 font-medium mt-2">Arsip penjualan sukses</p>
             </div>
-            <div className="bg-blue-50 p-3 rounded-lg text-indigo-500">
+            <div className="bg-cyan-50 p-3 rounded-lg text-cyan-600">
               <Briefcase className="h-6 w-6" />
             </div>
           </div>
@@ -742,18 +747,18 @@ export default function App() {
       <div className="max-w-[1400px] w-full mx-auto p-4 flex-1 flex flex-col lg:flex-row gap-6">
         
         {/* Workspace Feature Panel - Folders Side */}
-        <aside id="workspaces-folder-management-section" className="w-full lg:w-64 shrink-0 flex flex-col gap-4">
-          
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
+        <aside id="workspaces-folder-management-section" className="w-full lg:w-64 shrink-0">
+          {/* Desktop Version: lg:flex, hidden on smaller screens */}
+          <div className="hidden lg:flex flex-col gap-4 bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200">
               <div className="flex items-center gap-2">
-                <Folder className="h-4.5 w-4.5 text-indigo-600" />
+                <Folder className="h-4.5 w-4.5 text-rose-600" />
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">Workspace / Folder</h3>
               </div>
               <button 
                 id="btn-trigger-add-workspace"
                 onClick={() => setIsWorkspaceModalOpen(true)}
-                className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 p-1 rounded-md transition-colors"
+                className="text-rose-600 hover:text-rose-800 hover:bg-rose-50 p-1 rounded-md transition-colors cursor-pointer"
                 title="Sediakan Folder Baru"
               >
                 <FolderPlus className="h-5 w-5" />
@@ -769,9 +774,9 @@ export default function App() {
               <button
                 id="folder-all-workspaces"
                 onClick={() => setSelectedWorkspaceId(null)}
-                className={`flex w-full items-center justify-between px-3 py-2 text-sm rounded-lg transition-all font-medium ${
+                className={`flex w-full items-center justify-between px-3 py-2 text-sm rounded-lg transition-all font-medium cursor-pointer ${
                   selectedWorkspaceId === null 
-                    ? 'bg-indigo-600 text-white shadow-xs font-bold' 
+                    ? 'bg-[#FE2C55] text-white shadow-xs font-bold' 
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
@@ -780,7 +785,7 @@ export default function App() {
                   <span>Semua Akun</span>
                 </div>
                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                  selectedWorkspaceId === null ? 'bg-indigo-700/80 text-white' : 'bg-slate-100 text-slate-500'
+                  selectedWorkspaceId === null ? 'bg-rose-700/80 text-white' : 'bg-slate-100 text-slate-500'
                 }`}>
                   {accounts.length}
                 </span>
@@ -796,18 +801,18 @@ export default function App() {
                     <button
                       id={`folder-ws-${ws.id}`}
                       onClick={() => setSelectedWorkspaceId(ws.id)}
-                      className={`flex-1 flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-all font-medium text-left ${
+                      className={`flex-1 flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-all font-medium text-left cursor-pointer ${
                         isSelected 
-                          ? 'bg-indigo-100 text-indigo-900 font-bold border-l-4 border-indigo-600' 
+                          ? 'bg-rose-50 text-rose-900 font-bold border-l-4 border-rose-600' 
                           : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                       }`}
                     >
                       <div className="flex items-center gap-2 truncate pr-2">
-                        <Folder className={`h-4 w-4 shrink-0 ${isSelected ? 'text-indigo-600' : 'text-slate-400'}`} />
+                        <Folder className={`h-4 w-4 shrink-0 ${isSelected ? 'text-rose-600' : 'text-slate-400'}`} />
                         <span className="truncate">{ws.name}</span>
                       </div>
                       <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${
-                        isSelected ? 'bg-indigo-200 text-indigo-905' : 'bg-slate-100 text-slate-500'
+                        isSelected ? 'bg-rose-200 text-rose-900' : 'bg-slate-100 text-slate-500'
                       }`}>
                         {countOfAccountsInWs}
                       </span>
@@ -820,7 +825,7 @@ export default function App() {
                         e.stopPropagation();
                         handleDeleteWorkspace(ws.id, ws.name);
                       }}
-                      className="absolute right-7 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-600 p-1 bg-white hover:bg-rose-50 rounded transition-opacity"
+                      className="absolute right-7 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-600 p-1 bg-white hover:bg-rose-50 rounded transition-opacity cursor-pointer"
                       title="Hapus folder"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -833,14 +838,14 @@ export default function App() {
               <button
                 id="folder-ungrouped-workspaces"
                 onClick={() => setSelectedWorkspaceId('none_filter')}
-                className={`flex w-full items-center justify-between px-3 py-2 text-sm rounded-lg transition-all font-medium ${
+                className={`flex w-full items-center justify-between px-3 py-2 text-sm rounded-lg transition-all font-medium cursor-pointer ${
                   selectedWorkspaceId === 'none_filter' 
-                    ? 'bg-indigo-100 text-indigo-900 font-semibold border-l-4 border-indigo-600' 
+                    ? 'bg-rose-50 text-rose-900 font-semibold border-l-4 border-rose-600' 
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <Inbox className={`h-4 w-4 ${selectedWorkspaceId === 'none_filter' ? 'text-indigo-600' : 'text-slate-400'}`} />
+                  <Inbox className={`h-4 w-4 ${selectedWorkspaceId === 'none_filter' ? 'text-rose-600' : 'text-slate-400'}`} />
                   <span>Tanpa Grup</span>
                 </div>
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
@@ -850,18 +855,89 @@ export default function App() {
             </div>
           </div>
 
-          {/* Quick info notes for onboarding */}
-          <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white rounded-xl p-4 shadow-sm relative overflow-hidden">
-            <div className="absolute top-0 right-0 transform translate-x-3 -translate-y-3 opacity-10">
-              <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12.525.02c1.31-.03 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.03 1.4-.54 2.79-1.47 3.85-1.14 1.27-2.81 2.02-4.52 2.19-1.89.18-3.83-.22-5.38-1.37-1.57-1.17-2.53-3.07-2.52-5.04 0-1.64.65-3.32 1.9-4.38 1.18-1 2.75-1.46 4.31-1.32v4.03c-.88-.13-1.82.1-2.49.71-.62.55-.95 1.39-.93 2.22-.01 1.05.76 2.06 1.8 2.3 1.15.26 2.45-.23 3.01-1.28.31-.56.41-1.22.39-1.86.02-5.26-.01-10.51.01-15.77z"/>
-              </svg>
+          {/* Mobile Version: flex lg:hidden, modern horizontal scrolling bar */}
+          <div className="lg:hidden bg-white rounded-xl border border-slate-200 p-3 shadow-xs flex flex-col gap-2">
+            <div className="flex items-center justify-between pb-1">
+              <div className="flex items-center gap-1.5">
+                <Folder className="h-4 w-4 text-rose-600" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">Filter Folder</h3>
+              </div>
+              <button 
+                id="btn-trigger-add-workspace-mobile"
+                onClick={() => setIsWorkspaceModalOpen(true)}
+                className="text-rose-600 hover:text-rose-800 hover:bg-rose-50 p-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-xs font-bold"
+              >
+                <FolderPlus className="h-4 w-4" />
+                <span>Folder Baru</span>
+              </button>
             </div>
-            <p className="text-xs font-bold tracking-widest text-indigo-300 uppercase mb-1">Fitur Auto-Read</p>
-            <h4 className="text-sm font-extrabold mb-1.5">Intelligent TikTok Scan</h4>
-            <p className="text-[11px] text-indigo-200 leading-relaxed">
-              Cukup masukkan username TikTok di form tambah/edit, sistem akan otomatis menghubungi server proxy untuk menarik data follower, following, & total video secara real-time.
-            </p>
+            
+            {/* Horizontal Scroll Pillbox wrapper */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1.5 pt-0.5 -mx-1 px-1 scrollbar-hide snap-x">
+              {/* Reset view pill */}
+              <button
+                onClick={() => setSelectedWorkspaceId(null)}
+                className={`snap-start shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full transition-all font-bold cursor-pointer ${
+                  selectedWorkspaceId === null 
+                    ? 'bg-[#FE2C55] text-white shadow-xs' 
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                }`}
+              >
+                <Layers className="h-3.5 w-3.5" />
+                <span>Semua ({accounts.length})</span>
+              </button>
+
+              {/* Dynamic folder mapping list */}
+              {workspaces.map(ws => {
+                const countOfAccountsInWs = accounts.filter(acc => acc.workspaceId === ws.id).length;
+                const isSelected = selectedWorkspaceId === ws.id;
+                
+                return (
+                  <div key={ws.id} className="snap-start shrink-0 flex items-center gap-1 bg-slate-100 rounded-full border border-slate-250/50 border-slate-200 p-0.5">
+                    <button
+                      onClick={() => setSelectedWorkspaceId(ws.id)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full transition-all font-semibold cursor-pointer ${
+                        isSelected 
+                          ? 'bg-rose-500 text-white font-bold' 
+                          : 'text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      <Folder className={`h-3.5 w-3.5 shrink-0 ${isSelected ? 'text-white' : 'text-slate-400'}`} />
+                      <span className="max-w-[100px] truncate">{ws.name}</span>
+                      <span className={`text-[9px] px-1 py-0.2 rounded-full font-bold ${
+                        isSelected ? 'bg-rose-700/80 text-white' : 'bg-slate-200/85 text-slate-500'
+                      }`}>
+                        {countOfAccountsInWs}
+                      </span>
+                    </button>
+                    {/* Tiny delete folder */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteWorkspace(ws.id, ws.name);
+                      }}
+                      className="text-slate-400 hover:text-rose-600 p-1 hover:bg-slate-200 rounded-full cursor-pointer transition-colors"
+                      title="Hapus folder"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                );
+              })}
+
+              {/* Ungrouped folder pill */}
+              <button
+                onClick={() => setSelectedWorkspaceId('none_filter')}
+                className={`snap-start shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full transition-all font-semibold cursor-pointer ${
+                  selectedWorkspaceId === 'none_filter' 
+                    ? 'bg-rose-500 text-white font-bold' 
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                }`}
+              >
+                <Inbox className="h-3.5 w-3.5" />
+                <span>No Grup ({accounts.filter(a => !a.workspaceId).length})</span>
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -883,7 +959,7 @@ export default function App() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Username atau email..." 
-                    className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-8 text-sm outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-8 text-sm outline-none transition focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
                   />
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   {searchQuery && (
@@ -905,7 +981,7 @@ export default function App() {
                     id="sort-accounts-select"
                     value={sortBy}
                     onChange={(e: any) => setSortBy(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm appearance-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                    className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-8 text-sm appearance-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none"
                   >
                     <option value="newest">Terbaru Ditambahkan</option>
                     <option value="followers">Followers Tertinggi</option>
@@ -940,7 +1016,7 @@ export default function App() {
                   setEditingAccount(null);
                   setIsAccountModalOpen(true);
                 }}
-                className="flex items-center justify-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 text-sm font-bold transition-all shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 cursor-pointer"
+                className="flex items-center justify-center gap-2 rounded-lg bg-[#FE2C55] hover:bg-rose-600 text-white px-4 py-2 text-sm font-bold transition-all shadow-md focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-1 cursor-pointer"
               >
                 <Plus className="h-4 w-4" />
                 <span>Tambah Akun</span>
@@ -956,7 +1032,7 @@ export default function App() {
             <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-semibold text-slate-600">Active State:</span>
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-bold border border-indigo-100/50">
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 font-bold border border-rose-100/50">
                   {selectedWorkspaceId === null 
                     ? 'Semua Workspace' 
                     : selectedWorkspaceId === 'none_filter' 
@@ -988,8 +1064,8 @@ export default function App() {
               </div>
             </div>
 
-            {/* Table wrapper */}
-            <div className="overflow-x-auto flex-1 h-full min-h-[400px]">
+            {/* Table wrapper for Desktop or Card list for Mobile/Tablet */}
+            <div className="hidden md:block overflow-x-auto flex-1 h-full min-h-[400px]">
               <table id="tiktok-accounts-table" className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 select-none">
@@ -997,7 +1073,7 @@ export default function App() {
                     <th className="px-5 py-3 font-bold">Workspace</th>
                     <th className="px-5 py-3 font-bold">Statistik Followers</th>
                     <th className="px-5 py-3 font-bold">Email (Copy)</th>
-                    <th className="px-5 py-3 font-bold">Password (Copy)</th>
+                    <th className="px-5 py-3 font-bold">Password</th>
                     <th className="px-5 py-3 font-bold">Status</th>
                     <th className="px-5 py-3 font-bold text-right">Aksi</th>
                   </tr>
@@ -1047,7 +1123,7 @@ export default function App() {
                                   href={`https://www.tiktok.com/@${account.username}`}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="font-bold text-slate-900 hover:text-indigo-600 flex items-center gap-1 group/link"
+                                  className="font-bold text-slate-900 hover:text-rose-600 flex items-center gap-1 group/link"
                                 >
                                   @{account.username}
                                   <svg className="w-3 h-3 opacity-0 group-hover/link:opacity-100 transition-opacity" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -1076,16 +1152,16 @@ export default function App() {
                           <td className="px-5 py-3.5">
                             <div className="flex flex-wrap items-center gap-1.5">
                               {/* Followers */}
-                              <div className="flex items-center gap-1 bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-bold text-[10px]">
+                              <div className="flex items-center gap-1 bg-rose-50 text-rose-700 px-2 py-0.5 rounded font-bold text-[10px]">
                                 <Users className="h-3 w-3" />
                                 <span>{account.followers >= 1000000 ? `${(account.followers / 1000000).toFixed(1)}M` : account.followers >= 1000 ? `${(account.followers / 1000).toFixed(1)}K` : account.followers}</span>
-                                <span className="text-[8px] text-indigo-400 font-normal">Followers</span>
+                                <span className="text-[8px] text-rose-400 font-normal">Followers</span>
                               </div>
 
                               {/* Trigger direct metrics refresh API */}
                               <button 
                                 onClick={() => handleInlineRefresh(account)}
-                                className="text-slate-400 hover:text-indigo-600 p-1 hover:bg-slate-200 rounded transition-colors"
+                                className="text-slate-400 hover:text-rose-600 p-1 hover:bg-slate-200 rounded transition-colors cursor-pointer"
                                 title="Sinkronkan data publik terkini"
                               >
                                 <RefreshCw className="h-3 w-3" />
@@ -1101,7 +1177,7 @@ export default function App() {
                               </span>
                               <button
                                 onClick={() => handleCopy(account.email, account.id, 'email')}
-                                className="text-slate-400 hover:text-indigo-600 p-1 bg-transparent hover:bg-slate-100 rounded cursor-pointer"
+                                className="text-slate-400 hover:text-rose-600 p-1 bg-transparent hover:bg-slate-100 rounded cursor-pointer"
                                 title="Click to copy email address"
                               >
                                 {copiedId === account.id && copiedType === 'email' ? (
@@ -1114,22 +1190,35 @@ export default function App() {
                           </td>
 
                           {/* Secure Password display with copy mechanism */}
-                          <td className="px-5 py-3.5 max-w-[140px]">
-                            <div className="flex items-center gap-1.5 justify-start">
-                              <span className="font-mono text-slate-600 truncate bg-slate-100 px-1.5 py-0.5 rounded select-all" title={account.password}>
-                                {account.password || '••••••••'}
+                          <td className="px-5 py-3.5 max-w-[180px]">
+                            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200/60 px-1.5 py-1 rounded-lg justify-between shadow-3xs max-w-[160px]">
+                              <span className="font-mono text-xs text-slate-600 truncate select-all px-1" title={revealedPasswords[account.id] ? account.password : 'Password disembunyikan'}>
+                                {revealedPasswords[account.id] ? (account.password || '-') : '••••••••'}
                               </span>
-                              <button
-                                onClick={() => handleCopy(account.password || '', account.id, 'password')}
-                                className="text-slate-400 hover:text-indigo-600 p-1 bg-transparent hover:bg-slate-100 rounded cursor-pointer"
-                                title="Click to copy password"
-                              >
-                                {copiedId === account.id && copiedType === 'password' ? (
-                                  <Check className="h-3.5 w-3.5 text-emerald-600" />
-                                ) : (
-                                  <Copy className="h-3.5 w-3.5 opacity-60 hover:opacity-100" />
-                                )}
-                              </button>
+                              <div className="flex items-center shrink-0 gap-0.5">
+                                <button
+                                  onClick={() => setRevealedPasswords(prev => ({ ...prev, [account.id]: !prev[account.id] }))}
+                                  className="text-slate-400 hover:text-rose-600 p-0.5 hover:bg-slate-200 rounded cursor-pointer transition-colors"
+                                  title={revealedPasswords[account.id] ? "Sembunyikan password" : "Lihat password"}
+                                >
+                                  {revealedPasswords[account.id] ? (
+                                    <EyeOff className="h-3.5 w-3.5 opacity-75" />
+                                  ) : (
+                                    <Eye className="h-3.5 w-3.5 opacity-75" />
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => handleCopy(account.password || '', account.id, 'password')}
+                                  className="text-slate-400 hover:text-rose-600 p-0.5 hover:bg-slate-200 rounded cursor-pointer transition-colors"
+                                  title="Salin password"
+                                >
+                                  {copiedId === account.id && copiedType === 'password' ? (
+                                    <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                  ) : (
+                                    <Copy className="h-3.5 w-3.5 opacity-75" />
+                                  )}
+                                </button>
+                              </div>
                             </div>
                           </td>
 
@@ -1160,7 +1249,7 @@ export default function App() {
                             <div className="flex items-center justify-end gap-1.5">
                               <button
                                 onClick={() => handleOpenEditModal(account)}
-                                className="text-slate-400 hover:text-indigo-600 p-1.5 hover:bg-indigo-50 rounded-lg transition-colors"
+                                className="text-slate-400 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                                 title="Edit Akun"
                               >
                                 <Edit className="h-4 w-4" />
@@ -1180,6 +1269,191 @@ export default function App() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Card List (visible on screens smaller than md / mobile and tablet devices) */}
+            <div className="block md:hidden flex-1 bg-slate-50/50 p-4 divide-y-0 space-y-4 overflow-y-auto">
+              {paginatedAccounts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center max-w-sm mx-auto text-slate-400 py-12">
+                  <Inbox className="h-10 w-10 text-slate-300 mb-2" />
+                  <h4 className="text-slate-700 font-bold text-sm">Tidak Ada Akun TikTok Ditemukan</h4>
+                  <p className="text-xs text-center mt-1 leading-relaxed">
+                    Coba bersihkan pencarian atau tambahkan akun TikTok baru.
+                  </p>
+                </div>
+              ) : (
+                paginatedAccounts.map((account, index) => {
+                  const associatedWs = workspaces.find(w => w.id === account.workspaceId);
+                  const globalIndex = (currentPage - 1) * itemsPerPage + index + 1;
+                  return (
+                    <div 
+                      key={account.id}
+                      className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:border-rose-400 transition-all flex flex-col gap-3"
+                    >
+                      {/* Top Header of the card (Username, avatar, note, and Action buttons) */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {/* Card Numbering Badge */}
+                          <div className="flex items-center justify-center bg-slate-100 border border-slate-250 text-slate-700 text-xs font-black min-w-[28px] h-7 px-1.5 rounded-lg shrink-0 select-none animate-fade-in" title={`Akun ke-${globalIndex}`}>
+                            #{globalIndex}
+                          </div>
+
+                          <div className="h-9 w-9 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center text-slate-600 font-extrabold relative shrink-0">
+                            {account.username.charAt(0).toUpperCase()}
+                            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 border border-white rounded-full"></span>
+                          </div>
+                          <div className="min-w-0">
+                            <a 
+                              href={`https://www.tiktok.com/@${account.username}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-bold text-slate-900 hover:text-rose-600 flex items-center gap-1 text-sm truncate"
+                            >
+                              @{account.username}
+                              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6m4-2h6m0 0v6m0-6L10 14" />
+                              </svg>
+                            </a>
+                            <p className="text-[10px] text-slate-400 truncate max-w-[150px]">{account.note ? account.note : 'Tanpa catatan'}</p>
+                          </div>
+                        </div>
+
+                        {/* Top-Right action buttons (Edit, Delete) */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleOpenEditModal(account)}
+                            className="text-slate-400 hover:text-rose-600 p-2 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center"
+                            title="Edit Akun"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAccount(account)}
+                            className="text-slate-400 hover:text-rose-600 p-2 hover:bg-rose-50 rounded-lg transition-colors min-h-[40px] min-w-[40px] flex items-center justify-center"
+                            title="Hapus Akun"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Middle row: Folder & Statistics Info */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                        {/* Folder badge */}
+                        <div className="shrink-0">
+                          {associatedWs ? (
+                            <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${associatedWs.color}`}>
+                              {associatedWs.name}
+                            </span>
+                          ) : (
+                            <span className="text-[9px] px-2 py-0.5 rounded-full font-bold bg-slate-100 text-slate-400 border border-slate-200">
+                              Tanpa Grup
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Stats indicator */}
+                        <div className="flex items-center gap-1 bg-rose-50 text-rose-700 px-2.5 py-1 rounded-full font-bold text-xs">
+                          <Users className="h-3 w-3 shrink-0" />
+                          <span>{account.followers >= 1000000 ? `${(account.followers / 1000000).toFixed(1)}M` : account.followers >= 1000 ? `${(account.followers / 1000).toFixed(1)}K` : account.followers}</span>
+                          <span className="text-[9px] text-rose-400 font-normal">Followers</span>
+                          
+                          {/* Sync mini button */}
+                          <button 
+                            onClick={() => handleInlineRefresh(account)}
+                            className="text-rose-400 hover:text-rose-700 p-0.5 hover:bg-rose-100 rounded-full transition-colors ml-1 cursor-pointer"
+                            title="Sinkronkan data publik terkini"
+                          >
+                            <RefreshCw className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Credentials Block: Email & Password */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        {/* Email box */}
+                        <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 min-w-0">
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Email</span>
+                            <span className="text-xs font-mono text-slate-600 truncate pr-2 select-all" title={account.email}>
+                              {account.email}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => handleCopy(account.email, account.id, 'email')}
+                            className="text-slate-400 hover:text-rose-600 p-1.5 bg-white hover:bg-slate-100 rounded-md border border-slate-100 shrink-0 cursor-pointer min-h-[32px] min-w-[32px] flex items-center justify-center"
+                            title="Salin email"
+                          >
+                            {copiedId === account.id && copiedType === 'email' ? (
+                              <Check className="h-3.5 w-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Password box */}
+                        <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 min-w-0">
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Password</span>
+                            <span className="text-xs font-mono text-slate-600 truncate pr-2 select-all">
+                              {revealedPasswords[account.id] ? (account.password || '-') : '••••••••'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => setRevealedPasswords(prev => ({ ...prev, [account.id]: !prev[account.id] }))}
+                              className="text-slate-400 hover:text-rose-600 p-1.5 bg-white hover:bg-slate-100 border border-slate-100 rounded-md cursor-pointer transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center"
+                              title={revealedPasswords[account.id] ? "Sembunyikan password" : "Lihat password"}
+                            >
+                              {revealedPasswords[account.id] ? (
+                                <EyeOff className="h-3.5 w-3.5" />
+                              ) : (
+                                <Eye className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleCopy(account.password || '', account.id, 'password')}
+                              className="text-slate-400 hover:text-rose-600 p-1.5 bg-white hover:bg-slate-100 border border-slate-100 rounded-md cursor-pointer transition-colors min-h-[32px] min-w-[32px] flex items-center justify-center"
+                              title="Salin password"
+                            >
+                              {copiedId === account.id && copiedType === 'password' ? (
+                                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                              ) : (
+                                <Copy className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bottom-most Row: Status Selector */}
+                      <div className="flex items-center justify-between bg-slate-50/70 rounded-lg p-2 pt-1 mt-1">
+                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Status Akun</span>
+                        <select
+                          value={account.status}
+                          onChange={(e) => handleInlineStatusChange(account.id, e.target.value as AccountStatus)}
+                          className={`rounded-md border px-2 py-1 text-xs font-bold font-sans outline-none cursor-pointer ${
+                            account.status === 'Ready'
+                              ? 'border-emerald-300 bg-emerald-55 text-emerald-700 bg-emerald-50'
+                              : account.status === 'Proses'
+                              ? 'border-yellow-300 bg-yellow-55 text-yellow-700 bg-yellow-50'
+                              : account.status === 'Sold'
+                              ? 'border-blue-300 bg-blue-55 text-blue-700 bg-blue-50'
+                              : 'border-rose-300 bg-rose-55 text-rose-700 bg-rose-50'
+                          }`}
+                        >
+                          <option value="Ready">Ready</option>
+                          <option value="Proses">Proses</option>
+                          <option value="Sold">Sold</option>
+                          <option value="Banned">Banned</option>
+                        </select>
+                      </div>
+
+                    </div>
+                  );
+                })
+              )}
             </div>
 
             {/* Pagination Controls Footer - exactly 10 items shown per partition  */}
@@ -1203,9 +1477,9 @@ export default function App() {
                   <button
                     key={pNum}
                     onClick={() => setCurrentPage(pNum)}
-                    className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                    className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
                       currentPage === pNum
-                        ? 'bg-indigo-650 bg-indigo-605 text-white bg-indigo-600'
+                        ? 'bg-[#FE2C55] text-white'
                         : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                     }`}
                   >
@@ -1231,7 +1505,7 @@ export default function App() {
 
       {/* MODAL WINDOW 1: ADD & EDIT TIKTOK ACCOUNT */}
       {isAccountModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-indigo-950/40 backdrop-blur-xs overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-rose-950/40 backdrop-blur-xs overflow-y-auto">
           <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden transform transition-all my-8">
             
             {/* Header */}
@@ -1269,7 +1543,7 @@ export default function App() {
                         value={formUsername}
                         onChange={(e) => setFormUsername(e.target.value)}
                         placeholder="charlidamelio"
-                        className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-7 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                        className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-7 pr-3 text-sm focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none"
                         required
                       />
                     </div>
@@ -1277,10 +1551,10 @@ export default function App() {
                       type="button"
                       onClick={() => handleFetchStats(formUsername)}
                       disabled={isFetchingStats}
-                      className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 disabled:bg-slate-100 disabled:text-slate-400 text-indigo-700 font-bold text-xs rounded-lg border border-indigo-200/50 flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                      className="px-3 py-2 bg-rose-50 hover:bg-rose-100 disabled:bg-slate-100 disabled:text-slate-400 text-rose-700 font-bold text-xs rounded-lg border border-rose-200/50 flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
                     >
                       {isFetchingStats ? (
-                        <span className="inline-block animate-spin rounded-full h-3.5 w-3.5 border-2 border-indigo-600 border-t-transparent" />
+                        <span className="inline-block animate-spin rounded-full h-3.5 w-3.5 border-2 border-rose-600 border-t-transparent" />
                       ) : (
                         <Sparkles className="h-3.5 w-3.5" />
                       )}
@@ -1293,7 +1567,7 @@ export default function App() {
                 </div>
 
                 {/* Stats indicators review */}
-                <div className="grid grid-cols-3 gap-3 p-3 bg-indigo-50/50 border border-indigo-100/40 rounded-xl">
+                <div className="grid grid-cols-3 gap-3 p-3 bg-rose-50/50 border border-rose-100/45 border-rose-100/40 rounded-xl">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-500 uppercase">Followers</label>
                     <input
@@ -1332,7 +1606,7 @@ export default function App() {
                       value={formEmail}
                       onChange={(e) => setFormEmail(e.target.value)}
                       placeholder="address@creator.com"
-                      className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                      className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none"
                       required
                     />
                     <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -1348,7 +1622,7 @@ export default function App() {
                       value={formPassword}
                       onChange={(e) => setFormPassword(e.target.value)}
                       placeholder="BebasSandi123!"
-                      className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none font-mono"
+                      className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none font-mono"
                     />
                     <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   </div>
@@ -1361,7 +1635,7 @@ export default function App() {
                     <select
                       value={formWorkspaceId}
                       onChange={(e) => setFormWorkspaceId(e.target.value)}
-                      className="w-full rounded-lg border border-slate-300 bg-white p-2 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                      className="w-full rounded-lg border border-slate-300 bg-white p-2 text-xs focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none"
                     >
                       <option value="none">Tanpa Folder (Ungrouped)</option>
                       {workspaces.map(ws => (
@@ -1375,7 +1649,7 @@ export default function App() {
                     <select
                       value={formStatus}
                       onChange={(e: any) => setFormStatus(e.target.value)}
-                      className="w-full rounded-lg border border-slate-300 bg-white p-2 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                      className="w-full rounded-lg border border-slate-300 bg-white p-2 text-xs focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none"
                     >
                       <option value="Ready">Ready</option>
                       <option value="Proses">Proses</option>
@@ -1393,7 +1667,7 @@ export default function App() {
                     value={formNote}
                     onChange={(e) => setFormNote(e.target.value)}
                     placeholder="Contoh: Email pemulihan aktif, akun bekas toko fashion, dll."
-                    className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none"
+                    className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none resize-none"
                   />
                 </div>
 
@@ -1414,7 +1688,7 @@ export default function App() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-bold text-white bg-indigo-650 hover:bg-indigo-700 bg-indigo-600 rounded-lg shadow-xs"
+                  className="px-4 py-2 text-xs font-bold text-white bg-[#FE2C55] hover:bg-rose-600 rounded-lg shadow-xs cursor-pointer"
                 >
                   {editingAccount ? 'Simpan Perubahan' : 'Masukkan Data Baru'}
                 </button>
@@ -1427,7 +1701,7 @@ export default function App() {
 
       {/* MODAL WINDOW 2: CREATE WORKSPACE / FOLDER */}
       {isWorkspaceModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-indigo-950/40 backdrop-blur-xs overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-rose-950/40 backdrop-blur-xs overflow-y-auto">
           <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden transform transition-all my-8">
             
             {/* Header */}
@@ -1456,7 +1730,7 @@ export default function App() {
                     value={wsName}
                     onChange={(e) => setWsName(e.target.value)}
                     placeholder="Contoh: Akun Fashion lokal, US Creators, dll."
-                    className="w-full rounded-lg border border-slate-300 bg-white py-2 px-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none font-medium"
+                    className="w-full rounded-lg border border-slate-300 bg-white py-2 px-3 text-sm focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none font-medium"
                     required
                   />
                 </div>
@@ -1469,7 +1743,7 @@ export default function App() {
                     value={wsDescription}
                     onChange={(e) => setWsDescription(e.target.value)}
                     placeholder="Wadah grup untuk aset iklan sponsor"
-                    className="w-full rounded-lg border border-slate-300 bg-white py-2 px-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                    className="w-full rounded-lg border border-slate-300 bg-white py-2 px-3 text-sm focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none"
                   />
                 </div>
 
@@ -1488,7 +1762,7 @@ export default function App() {
                           value={colorSet.value}
                           checked={wsColor === colorSet.value}
                           onChange={() => setWsColor(colorSet.value)}
-                          className="text-indigo-600 focus:ring-indigo-500"
+                          className="text-rose-600 focus:ring-rose-500"
                         />
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${colorSet.value}`}>
                           {colorSet.label}
@@ -1511,7 +1785,7 @@ export default function App() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs"
+                  className="px-4 py-2 text-xs font-bold text-white bg-[#FE2C55] hover:bg-rose-600 rounded-lg shadow-xs cursor-pointer"
                 >
                   Buat Folder
                 </button>

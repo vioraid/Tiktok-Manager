@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -166,6 +167,119 @@ Return EXACTLY a JSON format of:
     }
 
     return res.json(stats);
+  });
+
+  // --- Multi-User Server-side JSON storage database ---
+  const DATA_DIR = path.join(process.cwd(), 'server_data');
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+
+  const getUsersFilePath = () => path.join(DATA_DIR, 'users.json');
+  const getWorkspacesFilePath = (email: string) => {
+    const safeEmail = encodeURIComponent(email.toLowerCase().trim());
+    return path.join(DATA_DIR, `workspaces_${safeEmail}.json`);
+  };
+  const getAccountsFilePath = (email: string) => {
+    const safeEmail = encodeURIComponent(email.toLowerCase().trim());
+    return path.join(DATA_DIR, `accounts_${safeEmail}.json`);
+  };
+
+  // Helper reader/writer
+  function readJsonFileSync<T>(filePath: string, defaultValue: T): T {
+    try {
+      if (fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        return JSON.parse(content) as T;
+      }
+    } catch (e) {
+      console.error('Error reading json file:', filePath, e);
+    }
+    return defaultValue;
+  }
+
+  function writeJsonFileSync<T>(filePath: string, data: T): void {
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (e) {
+      console.error('Error writing json file:', filePath, e);
+    }
+  }
+
+  // Pre-seed default user if users.json is empty or not existing
+  const usersPath = getUsersFilePath();
+  const existingUsers = readJsonFileSync<any[]>(usersPath, []);
+  if (existingUsers.length === 0) {
+    const defaultUser = {
+      name: 'Anjaz Rera',
+      email: 'anjazrera@gmail.com',
+      passwordHash: 'admin123'
+    };
+    writeJsonFileSync(usersPath, [defaultUser]);
+  }
+
+  // API 1: Fetch all registered users
+  app.get('/api/users', (req, res) => {
+    const filepath = getUsersFilePath();
+    const usersList = readJsonFileSync(filepath, []);
+    res.json(usersList);
+  });
+
+  // API 2: Register/save a user
+  app.post('/api/users', (req, res) => {
+    const newUser = req.body;
+    if (!newUser || !newUser.email) {
+      return res.status(400).json({ error: 'User data with email is required' });
+    }
+    const filepath = getUsersFilePath();
+    const usersList = readJsonFileSync<any[]>(filepath, []);
+    
+    // filter existing out to replace or keep
+    const updated = usersList.filter(u => u.email.toLowerCase() !== newUser.email.toLowerCase());
+    updated.push(newUser);
+    
+    writeJsonFileSync(filepath, updated);
+    res.json({ success: true });
+  });
+
+  // API 3: Get workspaces scoped to email
+  app.get('/api/workspaces/:email', (req, res) => {
+    const email = req.params.email;
+    const filepath = getWorkspacesFilePath(email);
+    const ws = readJsonFileSync(filepath, []);
+    res.json(ws);
+  });
+
+  // API 4: Save workspaces scoped to email
+  app.post('/api/workspaces/:email', (req, res) => {
+    const email = req.params.email;
+    const workspacesData = req.body;
+    if (!Array.isArray(workspacesData)) {
+      return res.status(400).json({ error: 'Workspaces data must be an array' });
+    }
+    const filepath = getWorkspacesFilePath(email);
+    writeJsonFileSync(filepath, workspacesData);
+    res.json({ success: true });
+  });
+
+  // API 5: Get accounts scoped to email
+  app.get('/api/accounts/:email', (req, res) => {
+    const email = req.params.email;
+    const filepath = getAccountsFilePath(email);
+    const acc = readJsonFileSync(filepath, []);
+    res.json(acc);
+  });
+
+  // API 6: Save accounts scoped to email
+  app.post('/api/accounts/:email', (req, res) => {
+    const email = req.params.email;
+    const accountsData = req.body;
+    if (!Array.isArray(accountsData)) {
+      return res.status(400).json({ error: 'Accounts data must be an array' });
+    }
+    const filepath = getAccountsFilePath(email);
+    writeJsonFileSync(filepath, accountsData);
+    res.json({ success: true });
   });
 
   // Vite development vs production serving logic

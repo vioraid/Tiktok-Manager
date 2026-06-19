@@ -6,33 +6,36 @@ export interface UserAccount {
   passwordHash: string; // Plaintext representation or simple string for demo security
 }
 
-// Let's generate empty default data to be populated of first boot
 const DEFAULT_WORKSPACES: Workspace[] = [];
 const DEFAULT_ACCOUNTS: TikTokAccount[] = [];
 
-// --- Multi-User Management ---
-export function getUsersFromLocal(): UserAccount[] {
-  const stored = localStorage.getItem('tiktok_manager_users');
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch (_) {
-      return [];
+// --- Multi-User Server-side Database API Communications ---
+
+export async function getUsersFromLocal(): Promise<UserAccount[]> {
+  try {
+    const res = await fetch('/api/users');
+    if (res.ok) {
+      return await res.json() as UserAccount[];
     }
+  } catch (error) {
+    console.error('Error fetching users from server database:', error);
   }
-  
-  // Pre-seed default user: anjazrera@gmail.com / admin123 for immediate local testing
-  const defaultUser: UserAccount = {
-    name: 'Anjaz Rera',
-    email: 'anjazrera@gmail.com',
-    passwordHash: 'admin123'
-  };
-  localStorage.setItem('tiktok_manager_users', JSON.stringify([defaultUser]));
-  return [defaultUser];
+  return [];
 }
 
-export function saveUsersToLocal(users: UserAccount[]): void {
-  localStorage.setItem('tiktok_manager_users', JSON.stringify(users));
+export async function saveUsersToLocal(user: UserAccount | UserAccount[]): Promise<void> {
+  const usersToSave = Array.isArray(user) ? user : [user];
+  for (const singleUser of usersToSave) {
+    try {
+      await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(singleUser)
+      });
+    } catch (error) {
+      console.error('Error saving user profile to server database:', error);
+    }
+  }
 }
 
 export function getLoggedInUserEmail(): string | null {
@@ -47,61 +50,62 @@ export function setLoggedInUserEmail(email: string | null): void {
   }
 }
 
-// --- Multi-user Scoped Workspaces and Accounts ---
-export function getInitialWorkspaces(userEmail?: string | null): Workspace[] {
+// --- Multi-user Scoped Workspaces and Accounts Server APIs ---
+
+export async function getInitialWorkspaces(userEmail?: string | null): Promise<Workspace[]> {
   if (!userEmail) {
     return DEFAULT_WORKSPACES;
   }
-  const key = `tiktok_manager_user_${userEmail}_workspaces`;
-  const stored = localStorage.getItem(key);
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored);
-      if (parsed.some((ws: any) => ws.id === 'ws-1' || ws.id === 'ws-2' || ws.id === 'ws-3' || ws.name === 'Agency Accounts')) {
-        localStorage.setItem(key, JSON.stringify([]));
-        return [];
-      }
-      return parsed;
-    } catch (_) {
-      // fallback
+  try {
+    const res = await fetch(`/api/workspaces/${encodeURIComponent(userEmail.trim())}`);
+    if (res.ok) {
+      return await res.json() as Workspace[];
     }
+  } catch (error) {
+    console.error('Error fetching workspaces from server database:', error);
   }
-  localStorage.setItem(key, JSON.stringify(DEFAULT_WORKSPACES));
   return DEFAULT_WORKSPACES;
 }
 
-export function getInitialAccounts(userEmail?: string | null): TikTokAccount[] {
+export async function getInitialAccounts(userEmail?: string | null): Promise<TikTokAccount[]> {
   if (!userEmail) {
     return DEFAULT_ACCOUNTS;
   }
-  const key = `tiktok_manager_user_${userEmail}_accounts`;
-  const stored = localStorage.getItem(key);
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored);
-      if (parsed.some((acc: any) => acc.id === 'acc-1' || acc.username === 'charlidamelio' || acc.username === 'khaby.lame')) {
-        localStorage.setItem(key, JSON.stringify([]));
-        return [];
-      }
-      return parsed;
-    } catch (_) {
-      // fallback
+  try {
+    const res = await fetch(`/api/accounts/${encodeURIComponent(userEmail.trim())}`);
+    if (res.ok) {
+      return await res.json() as TikTokAccount[];
     }
+  } catch (error) {
+    console.error('Error fetching accounts from server database:', error);
   }
-  localStorage.setItem(key, JSON.stringify(DEFAULT_ACCOUNTS));
   return DEFAULT_ACCOUNTS;
 }
 
-export function saveWorkspacesToLocal(workspaces: Workspace[], userEmail?: string | null): void {
+export async function saveWorkspacesToLocal(workspaces: Workspace[], userEmail?: string | null): Promise<void> {
   if (!userEmail) return;
-  const key = `tiktok_manager_user_${userEmail}_workspaces`;
-  localStorage.setItem(key, JSON.stringify(workspaces));
+  try {
+    await fetch(`/api/workspaces/${encodeURIComponent(userEmail.trim())}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(workspaces)
+    });
+  } catch (error) {
+    console.error('Error saving workspaces to server database:', error);
+  }
 }
 
-export function saveAccountsToLocal(accounts: TikTokAccount[], userEmail?: string | null): void {
+export async function saveAccountsToLocal(accounts: TikTokAccount[], userEmail?: string | null): Promise<void> {
   if (!userEmail) return;
-  const key = `tiktok_manager_user_${userEmail}_accounts`;
-  localStorage.setItem(key, JSON.stringify(accounts));
+  try {
+    await fetch(`/api/accounts/${encodeURIComponent(userEmail.trim())}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(accounts)
+    });
+  } catch (error) {
+    console.error('Error saving accounts to server database:', error);
+  }
 }
 
 /**
