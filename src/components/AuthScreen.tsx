@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, Eye, EyeOff, Sparkles, Check, ArrowRight } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, Sparkles, Check, ArrowRight, Chrome } from 'lucide-react';
 import { UserAccount } from '../storage';
+import { auth } from '../firebase';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 interface AuthScreenProps {
   onLoginSuccess: (user: UserAccount) => void;
@@ -16,6 +18,54 @@ export default function AuthScreen({ onLoginSuccess, registeredUsers, onRegister
   const [nameInput, setNameInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setErrorMessage('');
+    setIsGoogleLoading(true);
+    const provider = new GoogleAuthProvider();
+    // Prompt Google sign in flow
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
+
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      if (!user.email) {
+        setErrorMessage('Gagal memperoleh alamat email dari Google Auth.');
+        setIsGoogleLoading(false);
+        return;
+      }
+
+      const cleanEmail = user.email.toLowerCase().trim();
+      
+      // Look if user already exists in verified list
+      let existingUser = registeredUsers.find(u => u.email.toLowerCase() === cleanEmail);
+      if (!existingUser) {
+        // Create auto-registered account profile
+        existingUser = {
+          name: user.displayName || user.email.split('@')[0],
+          email: cleanEmail,
+          passwordHash: 'google-oauth-linked'
+        };
+        await onRegisterUser(existingUser);
+      }
+      
+      onLoginSuccess(existingUser);
+    } catch (error: any) {
+      console.error('Error Google Sign-In:', error);
+      if (error.code === 'auth/popup-blocked') {
+        setErrorMessage('Popup login diblokir! Aktifkan izin popup di browser Anda dan coba lagi.');
+      } else if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
+        setErrorMessage('Login dibatalkan oleh pengguna.');
+      } else {
+        setErrorMessage(`Gagal login Google: ${error.message || 'Kesalahan sistem'}`);
+      }
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -186,6 +236,35 @@ export default function AuthScreen({ onLoginSuccess, registeredUsers, onRegister
             className="w-full py-3 bg-[#FE2C55] hover:bg-rose-505 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-bold rounded-xl text-sm shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 focus:ring-offset-slate-950 mt-2 cursor-pointer shadow-rose-600/10"
           >
             {isSignUp ? 'Daftar Akun Baru' : 'Masuk ke Dashboard'}
+          </button>
+
+          {/* Divider line */}
+          <div className="relative flex py-2 items-center">
+            <div className="flex-grow border-t border-slate-800"></div>
+            <span className="flex-shrink mx-4 text-slate-500 text-[10px] font-mono uppercase tracking-wider select-none">atau</span>
+            <div className="flex-grow border-t border-slate-800"></div>
+          </div>
+
+          {/* Google Sign-in button */}
+          <button
+            type="button"
+            disabled={isGoogleLoading}
+            onClick={handleGoogleSignIn}
+            className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 active:bg-slate-950 text-white font-bold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2.5 transition-all focus:outline-none focus:ring-2 focus:ring-slate-800 cursor-pointer disabled:opacity-50 disabled:pointer-events-none shadow-md"
+          >
+            {isGoogleLoading ? (
+              <div className="h-4 w-4 border-2 border-slate-500 border-t-white rounded-full animate-spin"></div>
+            ) : (
+              <div className="flex items-center justify-center mr-0.5">
+                <span className="text-[#4285F4] font-black text-xs sm:text-sm mr-[1px]">G</span>
+                <span className="text-[#EA4335] font-black text-xs sm:text-sm mr-[1px]">o</span>
+                <span className="text-[#FBBC05] font-black text-xs sm:text-sm mr-[1px]">o</span>
+                <span className="text-[#4285F4] font-black text-xs sm:text-sm mr-[1px]">g</span>
+                <span className="text-[#34A853] font-black text-xs sm:text-sm mr-[1px]">l</span>
+                <span className="text-[#EA4335] font-black text-xs sm:text-sm">e</span>
+              </div>
+            )}
+            <span>{isGoogleLoading ? 'Menghubungkan...' : 'Masuk dengan Google'}</span>
           </button>
 
           {onBackToLanding && (

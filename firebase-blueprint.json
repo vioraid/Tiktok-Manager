@@ -1,0 +1,70 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile stored by their email address.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Full name of the registered user"
+        },
+        "email": {
+          "type": "string",
+          "description": "Registered email of the user"
+        },
+        "passwordHash": {
+          "type": "string",
+          "description": "Password or simple credential verification key"
+        }
+      },
+      "required": ["name", "email", "passwordHash"]
+    },
+    "UserWorkspaces": {
+      "title": "User Workspaces",
+      "description": "The list of folders/workspaces owned by a user.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Owner email address"
+        },
+        "workspaces": {
+          "type": "array",
+          "description": "List of workspaces"
+        }
+      },
+      "required": ["email", "workspaces"]
+    },
+    "UserAccounts": {
+      "title": "User Accounts",
+      "description": "The list of TikTok accounts managed by a user.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Owner email address"
+        },
+        "accounts": {
+          "type": "array",
+          "description": "List of TikTok accounts"
+        }
+      },
+      "required": ["email", "accounts"]
+    }
+  },
+  "firestore": {
+    "/users/{email}": {
+      "schema": "User",
+      "description": "Registered credentials and profiles"
+    },
+    "/workspaces/{email}": {
+      "schema": "UserWorkspaces",
+      "description": "Workspaces scoped to each user"
+    },
+    "/accounts/{email}": {
+      "schema": "UserAccounts",
+      "description": "TikTok accounts scoped to each user"
+    }
+  }
+}

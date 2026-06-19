@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Catch-all safety net to deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Workspaces collection mapped by lowercased user email as document ID
+    match /workspaces/{email} {
+      allow read, write: if email != null && email != '';
+    }
+
+    // Accounts collection mapped by lowercased user email as document ID
+    match /accounts/{email} {
+      allow read, write: if email != null && email != '';
+    }
+
+    // Users credentials profile mapped by lowercased user email as document ID
+    match /users/{email} {
+      allow read, write: if email != null && email != '';
+    }
+  }
+}
