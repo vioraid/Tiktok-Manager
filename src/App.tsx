@@ -1275,6 +1275,8 @@ export default function App() {
                               className={`rounded-md border p-1 text-xs font-bold font-sans outline-none cursor-pointer ${
                                 account.status === 'Ready'
                                   ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                                  : account.status === 'Hold'
+                                  ? 'border-purple-300 bg-purple-50 text-purple-700'
                                   : account.status === 'Proses'
                                   ? 'border-yellow-300 bg-yellow-50 text-yellow-700'
                                   : account.status === 'Sold'
@@ -1283,8 +1285,8 @@ export default function App() {
                               }`}
                             >
                               <option value="Ready">Ready</option>
+                              <option value="Hold">Hold</option>
                               <option value="Proses">Proses</option>
-                              <option value="Sold">Sold</option>
                               <option value="Banned">Banned</option>
                             </select>
                           </td>
@@ -1481,6 +1483,8 @@ export default function App() {
                           className={`rounded-md border px-2 py-1 text-xs font-bold font-sans outline-none cursor-pointer ${
                             account.status === 'Ready'
                               ? 'border-emerald-300 bg-emerald-55 text-emerald-700 bg-emerald-50'
+                              : account.status === 'Hold'
+                              ? 'border-purple-300 bg-purple-55 text-purple-700 bg-purple-50'
                               : account.status === 'Proses'
                               ? 'border-yellow-300 bg-yellow-55 text-yellow-700 bg-yellow-50'
                               : account.status === 'Sold'
@@ -1489,8 +1493,8 @@ export default function App() {
                           }`}
                         >
                           <option value="Ready">Ready</option>
+                          <option value="Hold">Hold</option>
                           <option value="Proses">Proses</option>
-                          <option value="Sold">Sold</option>
                           <option value="Banned">Banned</option>
                         </select>
                       </div>
@@ -1697,8 +1701,8 @@ export default function App() {
                       className="w-full rounded-lg border border-slate-300 bg-white p-2 text-xs focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none"
                     >
                       <option value="Ready">Ready</option>
+                      <option value="Hold">Hold</option>
                       <option value="Proses">Proses</option>
-                      <option value="Sold">Sold</option>
                       <option value="Banned">Banned</option>
                     </select>
                   </div>

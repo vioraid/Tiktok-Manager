@@ -1,4 +1,4 @@
-export type AccountStatus = 'Ready' | 'Sold' | 'Proses' | 'Banned';
+export type AccountStatus = 'Ready' | 'Hold' | 'Proses' | 'Banned' | 'Sold';
 
 export interface TikTokAccount {
   id: string;
