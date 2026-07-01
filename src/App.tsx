@@ -331,6 +331,51 @@ export default function App() {
     setLastFetchedSource('');
   };
 
+  const handleGenerateEmailData = () => {
+    const names = [
+      'santi', 'budi', 'dewi', 'bambang', 'eko', 'rudi', 'ani', 'agus', 'rara', 'hendra',
+      'putri', 'andri', 'diana', 'sari', 'fajar', 'surya', 'mega', 'guntur', 'citra', 'wulan',
+      'yanto', 'kartika', 'taufik', 'rizal', 'dina', 'joko', 'ratna', 'bagus', 'setiawan', 'wahyu',
+      'intan', 'mira', 'yudi', 'ari', 'lisa', 'rina', 'adi', 'eka', 'siti', 'putra',
+      'dani', 'bayu', 'fitri', 'tri', 'ahmad', 'suryo', 'hadi', 'agung', 'lia', 'tono'
+    ];
+    const firstWord = names[Math.floor(Math.random() * names.length)];
+    
+    // Lalu huruf acak (2 hingga 5 huruf acak)
+    const letters = 'abcdefghijklmnopqrstuvwxyz';
+    let randomLetters = '';
+    const randomLettersLen = Math.floor(Math.random() * 4) + 2;
+    for (let i = 0; i < randomLettersLen; i++) {
+      randomLetters += letters.charAt(Math.floor(Math.random() * letters.length));
+    }
+    
+    // Diikuti kata "tok" (TOK) dan diikuti 1-3 angka
+    let digits = '';
+    const digitsLen = Math.floor(Math.random() * 3) + 1;
+    for (let i = 0; i < digitsLen; i++) {
+      digits += Math.floor(Math.random() * 10).toString();
+    }
+    
+    const emailPrefix = `${firstWord}${randomLetters}tok${digits}`;
+    const email = `${emailPrefix}@tuyul.biz.id`;
+    const username = emailPrefix;
+    
+    // Password 10-15 huruf acak dan angka, lalu ditambah satu simbol @
+    const passChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let randomPasswordPart = '';
+    const passLen = Math.floor(Math.random() * 6) + 10;
+    for (let i = 0; i < passLen; i++) {
+      randomPasswordPart += passChars.charAt(Math.floor(Math.random() * passChars.length));
+    }
+    
+    const insertIndex = Math.floor(Math.random() * (passLen - 2)) + 1;
+    const password = randomPasswordPart.substring(0, insertIndex) + '@' + randomPasswordPart.substring(insertIndex);
+    
+    setFormUsername(username);
+    setFormEmail(email);
+    setFormPassword(password);
+  };
+
   // Open Edit Account Modal
   const handleOpenEditModal = (acc: TikTokAccount) => {
     setEditingAccount(acc);
@@ -1674,7 +1719,16 @@ export default function App() {
               </div>
 
               {/* Action Buttons */}
-              <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2 items-center">
+                <button
+                  type="button"
+                  onClick={handleGenerateEmailData}
+                  className="px-4 py-2 text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 rounded-lg shadow-sm cursor-pointer flex items-center gap-1.5 mr-auto transition-all active:scale-95"
+                  title="Generate otomatis Email, Username, & Password"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>Generate</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -1682,13 +1736,13 @@ export default function App() {
                     setEditingAccount(null);
                     clearAccountForm();
                   }}
-                  className="px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700 bg-transparent rounded-lg border border-slate-200/60"
+                  className="px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700 bg-transparent rounded-lg border border-slate-200/60 transition-all active:scale-95"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-bold text-white bg-[#FE2C55] hover:bg-rose-600 rounded-lg shadow-xs cursor-pointer"
+                  className="px-4 py-2 text-xs font-bold text-white bg-[#FE2C55] hover:bg-rose-600 rounded-lg shadow-xs cursor-pointer transition-all active:scale-95"
                 >
                   {editingAccount ? 'Simpan Perubahan' : 'Masukkan Data Baru'}
                 </button>
